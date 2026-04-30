@@ -27,35 +27,128 @@
 //++
 
 import { Controller } from '@hotwired/stimulus';
-import { FrameElement } from '@hotwired/turbo';
-import { HalEventsService } from 'core-app/features/hal/services/hal-events.service';
-import { filter, Subscription } from 'rxjs';
+import { FetchRequest } from '@rails/request.js';
+import {
+  dropTargetForElements,
+  type ElementEventPayloadMap,
+  monitorForElements,
+} from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
+import { extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge';
+import { debugLog } from 'core-app/shared/helpers/debug_output';
+
+import {
+  buildMoveFormData,
+  isItemData,
+  resolveFallbackDropTarget,
+  resolveListPreviousItemId,
+  resolveListTargetId,
+  resolvePreviousItemId,
+} from './backlogs/drag-and-drop';
+
+type CleanupFn = () => void;
+type ElementDropPayload = ElementEventPayloadMap['onDrop'];
 
 export default class BacklogsController extends Controller<HTMLElement> {
-  private service:HalEventsService|null = null;
-  private subscription:Subscription|null = null;
+  static targets = ['list'];
 
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  async connect() {
-    const { services: { halEvents } } = await window.OpenProject.getPluginContext();
+  declare readonly listTargets:HTMLElement[];
 
-    this.service = halEvents;
-    this.subscription = this.service.aggregated$('WorkPackage')
-      .pipe(filter((events) => events.some((event) => event.eventType === 'updated')))
-      .subscribe(() => { this.refreshList(); });
+  private cleanupFn?:CleanupFn;
+  private listCleanupFns = new Map<HTMLElement, CleanupFn>();
+
+  connect():void {
+    this.cleanupFn = monitorForElements({
+      canMonitor: ({ source }) => isItemData(source.data),
+      onDrop: (args) => {
+        void this.handleDrop(args);
+      },
+    });
   }
 
-  disconnect() {
-    this.subscription?.unsubscribe();
-    this.subscription = null;
-    this.service = null;
+  disconnect():void {
+    this.cleanupFn?.();
+    this.cleanupFn = undefined;
+    this.listCleanupFns.forEach((cleanup) => cleanup());
+    this.listCleanupFns.clear();
   }
 
-  private refreshList() {
-    void this.listElement.reload();
+  listTargetConnected(element:HTMLElement):void {
+    const cleanup = dropTargetForElements({
+      element,
+      canDrop: ({ source }) => isItemData(source.data),
+      getData: () => ({ type: 'list', targetId: resolveListTargetId(element) }),
+      getIsSticky: () => false,
+    });
+
+    this.listCleanupFns.set(element, cleanup);
   }
 
-  private get listElement() {
-    return this.element.querySelector<FrameElement>('#backlogs_container')!;
+  listTargetDisconnected(element:HTMLElement):void {
+    this.listCleanupFns.get(element)?.();
+    this.listCleanupFns.delete(element);
+  }
+
+  private async handleDrop({ location, source }:ElementDropPayload) {
+    if (!isItemData(source.data) || !(source.element instanceof HTMLElement)) {
+      return;
+    }
+
+    const dropUrl = source.element.getAttribute('data-drop-url');
+    if (!dropUrl) {
+      return;
+    }
+
+    const targetItem = location.current.dropTargets.find(({ data, element }) => (
+      isItemData(data) && element instanceof HTMLElement
+    ));
+    const fallbackTarget = location.current.dropTargets.length === 0
+      ? resolveFallbackDropTarget({
+        input: location.current.input,
+        root: this.element,
+        sourceElement: source.element,
+      })
+      : null;
+    const fallbackItem = fallbackTarget?.isItem ? fallbackTarget : null;
+    const resolvedTargetItem = targetItem ?? fallbackItem;
+    const targetElement = resolvedTargetItem?.element ?? location.current.dropTargets[0]?.element ?? fallbackTarget?.element;
+
+    if (!(targetElement instanceof HTMLElement)) {
+      return;
+    }
+
+    const targetId = resolveListTargetId(targetElement);
+    if (!targetId) {
+      return;
+    }
+
+    const previousItemId = resolvedTargetItem?.element instanceof HTMLElement
+      ? resolvePreviousItemId({
+        sourceItemId: source.data.itemId,
+        targetItem: resolvedTargetItem.element,
+        closestEdge: extractClosestEdge(resolvedTargetItem.data),
+      })
+      : resolveListPreviousItemId({
+        sourceItemId: source.data.itemId,
+        list: targetElement,
+      });
+
+    const request = new FetchRequest(
+      'put',
+      dropUrl,
+      {
+        body: buildMoveFormData({ targetId, previousItemId }),
+        responseKind: 'turbo-stream',
+      },
+    );
+
+    try {
+      const response = await request.perform();
+
+      if (!response.ok) {
+        debugLog(`Failed to move backlogs item: ${response.statusCode}`);
+      }
+    } catch (error) {
+      debugLog('Failed to move backlogs item due to request error', error);
+    }
   }
 }

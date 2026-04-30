@@ -36,10 +36,8 @@ See COPYRIGHT and LICENSE files for more details.
           padding: :condensed,
           test_selector: "backlog-inbox",
           data: {
-            generic_drag_and_drop_target: "container",
-            target_container_accessor: ":scope > ul",
-            target_id: "inbox",
-            target_allowed_drag_type: "story"
+            backlogs_target: "list",
+            backlogs_target_id: "inbox"
           }
         )
       ) do |list| %>

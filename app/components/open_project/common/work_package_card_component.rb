@@ -49,11 +49,26 @@ module OpenProject
       # @param work_package [WorkPackage] the work package this card represents.
       # @param menu_src [String, NilClass] optional lazy menu source. Prefer the
       #   `with_menu(src:)` slot for new call sites.
-      def initialize(work_package:, menu_src: nil)
+      # @param system_arguments [Hash] forwarded to the root card element.
+      def initialize(work_package:, menu_src: nil, **system_arguments)
         super()
 
         @work_package = work_package
         @menu_src = menu_src
+        @system_arguments = system_arguments
+        @system_arguments[:classes] = class_names(
+          @system_arguments[:classes],
+          "Box-card"
+        )
+      end
+
+      def card_arguments
+        @system_arguments.deep_dup.tap do |arguments|
+          arguments[:classes] = class_names(
+            arguments[:classes],
+            "op-work-package-card_with-metric": metric?
+          )
+        end
       end
     end
   end

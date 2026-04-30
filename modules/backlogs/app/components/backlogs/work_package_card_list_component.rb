@@ -107,10 +107,8 @@ module Backlogs
 
     def drag_and_drop_data
       {
-        generic_drag_and_drop_target: "container",
-        target_container_accessor: ":scope > ul",
-        target_id: drag_and_drop.fetch(:target_id),
-        target_allowed_drag_type: drag_and_drop.fetch(:allowed_drag_type)
+        backlogs_target: "list",
+        backlogs_target_id: drag_and_drop.fetch(:target_id)
       }
     end
 

@@ -30,11 +30,15 @@
 
 module Backlogs
   class WorkPackageCardListItemComponent < OpenProject::Common::BorderBoxListComponent::WorkPackageItem
-    private
-
-    def build_card
-      WorkPackageCardComponent.new(work_package:, menu_src:)
+    def card
+      @card ||= WorkPackageCardComponent.new(
+        work_package:,
+        menu_src:,
+        **card_arguments
+      )
     end
+
+    private
 
     def draggable?
       current_user.allowed_in_project?(:manage_sprint_items, project)
@@ -80,10 +84,15 @@ module Backlogs
       end
     end
 
-    # `story` data attrs match the live Stimulus controller and Dragula
-    # drag-type; renaming requires coordinated JS changes (separate PR).
-    def row_data
-      super.merge(
+    def card_arguments
+      {
+        classes: "op-backlogs-story",
+        data: card_data
+      }
+    end
+
+    def card_data
+      data = {
         story: true,
         controller: "backlogs--story",
         backlogs__story_id_value: work_package.id,
@@ -91,13 +100,27 @@ module Backlogs
         backlogs__story_split_url_value: split_url,
         backlogs__story_full_url_value: full_url,
         backlogs__story_selected_class: "Box-row--blue"
-      )
+      }
+
+      return data unless draggable?
+
+      data.merge(backlogs__item_target: "preview")
     end
 
-    def draggable_data
+    public
+
+    def row_args
+      super.tap do |arguments|
+        arguments[:draggable] = true if draggable?
+      end
+    end
+
+    def row_data
+      return {} unless draggable?
+
       {
-        draggable_id: work_package.id,
-        draggable_type: "story",
+        controller: "backlogs--item",
+        backlogs__item_item_id_value: work_package.id,
         drop_url:
       }
     end

@@ -311,7 +311,7 @@ RSpec.describe "Inbox column in sprint planning view", :js do
       end
     end
 
-    describe "moving backlog items to a sprint via drag-and-drop" do
+    describe "moving backlog items to a sprint via drag-and-drop", :selenium do
       it "moves multiple items into the sprint one by one" do
         planning_page.drag_inbox_item_to_sprint(inbox_wp1, sprint)
         planning_page.expect_no_inbox_item(inbox_wp1)
@@ -328,7 +328,13 @@ RSpec.describe "Inbox column in sprint planning view", :js do
         planning_page.expect_story_in_sprint(inbox_wp3, sprint)
       end
 
-      context "with real authentication and a private project" do
+      context "with real authentication and a private project",
+              with_settings: {
+                "plugin_openproject_two_factor_authentication" => {
+                  "active_strategies" => [],
+                  "disabled" => true
+                }
+              } do
         let!(:project) do
           create(:private_project,
                  types: [type],
@@ -399,7 +405,7 @@ RSpec.describe "Inbox column in sprint planning view", :js do
       end
     end
 
-    describe "moving sprint items back to the inbox via drag-and-drop" do
+    describe "moving sprint items back to the inbox via drag-and-drop", :selenium do
       let!(:sprint_wp1) { create(:work_package, project:, sprint:) }
       let!(:sprint_wp2) { create(:work_package, project:, sprint:) }
 
@@ -431,13 +437,13 @@ RSpec.describe "Inbox column in sprint planning view", :js do
       planning_page.visit!
     end
 
-    it "retains the expanded inbox across all update actions", :aggregate_failures do
+    it "retains the expanded inbox across all update actions", :aggregate_failures, :selenium do
       # Initial load shows pagination
       planning_page.expect_inbox_show_more
 
       # Expand inbox — URL advances to ?all=1
       planning_page.click_inbox_show_more
-      expect(page.current_url).to include("all=1")
+      expect(page).to have_current_path(/all=1/)
       planning_page.expect_no_inbox_show_more
 
       # Drag an inbox item to the sprint

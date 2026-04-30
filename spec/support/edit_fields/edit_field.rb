@@ -272,7 +272,7 @@ class EditField
     # an attribute, which may cause an input not to open properly.
     retry_block do
       activate_edition
-      wait_for_network_idle
+      wait_for_network_idle if using_cuprite?
       set_value value
 
       # select fields are saved on change

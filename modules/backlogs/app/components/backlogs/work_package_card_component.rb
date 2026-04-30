@@ -34,11 +34,12 @@ module Backlogs
 
     delegate :with_menu, :with_metric, to: :card
 
-    def initialize(work_package:, menu_src: nil)
+    def initialize(work_package:, menu_src: nil, **system_arguments)
       super()
 
       @work_package = work_package
       @menu_src = menu_src
+      @system_arguments = system_arguments
     end
 
     def call
@@ -54,7 +55,11 @@ module Backlogs
     private
 
     def card
-      @card ||= OpenProject::Common::WorkPackageCardComponent.new(work_package:, menu_src:)
+      @card ||= OpenProject::Common::WorkPackageCardComponent.new(
+        work_package:,
+        menu_src:,
+        **@system_arguments
+      )
     end
 
     def before_render
