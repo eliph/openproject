@@ -37,6 +37,22 @@
       end
     end
 
+    # TEMP: demo of single-select variant
+    subheader.with_quick_filter do
+      render(
+        OpPrimer::QuickFilter::SelectPanelComponent.new(
+          name: "Type",
+          query: @query,
+          filter_key: :type,
+          path_args: [@project, :meetings],
+          select_variant: :single
+        )
+      ) do |component|
+        component.with_item(label: I18n.t("meeting.types.one_time"), value: "f")
+        component.with_item(label: I18n.t("meeting.types.recurring"), value: "t")
+      end
+    end
+
     subheader.with_filter_component do
       render(Meetings::MeetingFilterButtonComponent.new(query: @query, project: @project))
     end
