@@ -54,18 +54,43 @@ RSpec.describe WorkPackages::Scopes::WithoutStatusConsideredClosed do
       expect(unfinished).to contain_exactly(wp_with_open_status)
     end
 
-    it "considers the 'not done' configuration of the project a work package belongs to" do
-      project_where_closed_status_is_not_defined_as_done = create(:project, enabled_module_names: %w[backlogs]) do |p|
-        # Note that 'closed_status' is missing here
-        p.done_status_ids = [open_status_defined_as_done_in_project.id]
+    it "treats globally closed statuses as done when project config is empty (corruption case)" do
+      # Safeguard: even if a project's done_statuses_for_project is empty (corruption),
+      # any status with is_closed: true should still be treated as done.
+      project_with_empty_config = create(:project, enabled_module_names: %w[backlogs]) do |p|
+        # Deliberately empty done_status_ids to simulate corruption
+        p.done_status_ids = []
       end
 
-      create(:work_package, status: closed_status, project:)
-      not_quite_closed_wp = create(:work_package,
-                                   status: closed_status,
-                                   project: project_where_closed_status_is_not_defined_as_done)
+      # WP with a globally closed status in the corrupted project
+      create(:work_package, subject: "Corrupted wp", status: closed_status, project: project_with_empty_config)
 
-      expect(unfinished).to contain_exactly(not_quite_closed_wp)
+      # WP with an open status in the corrupted project
+      open_wp = create(:work_package, status: open_status, project: project_with_empty_config)
+
+      expect(unfinished).to contain_exactly(open_wp)
+    end
+
+    it "respects per-project status configuration" do
+      # A status that is globally open (is_closed: false) but configured as done in one project
+      # and not in another
+      globally_open_status = create(:status, is_closed: false)
+
+      project_where_status_is_done = create(:project, enabled_module_names: %w[backlogs]) do |p|
+        p.done_status_ids = [globally_open_status.id]
+      end
+
+      project_where_status_is_not_done = create(:project, enabled_module_names: %w[backlogs]) do |p|
+        p.done_status_ids = []
+      end
+
+      # WP in project A with the status → should NOT be unfinished (configured as done)
+      create(:work_package, subject: "wp in project a", status: globally_open_status, project: project_where_status_is_done)
+
+      # WP in project B with the status → should be unfinished (not configured as done)
+      wp_in_project_b = create(:work_package, status: globally_open_status, project: project_where_status_is_not_done)
+
+      expect(unfinished).to contain_exactly(wp_in_project_b)
     end
   end
 end

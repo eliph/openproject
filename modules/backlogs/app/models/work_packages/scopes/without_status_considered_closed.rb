@@ -33,11 +33,11 @@ module WorkPackages::Scopes::WithoutStatusConsideredClosed
 
   class_methods do
     def without_status_considered_closed
-      # Excludes work packages whose status is configured as "closed" on the project
+      # Excludes work packages whose status is configured as "done" on the project
       # the work package belongs to. The correlated subquery ensures each work package
       # is always checked against its own project's status configuration.
-      # Additionally, (as a safeguard) all globally closed statuses are always included
-      # into the check to mitigate for an empty project configuration.
+      # Additionally, all globally closed statuses are always treated as done,
+      # safeguarding against empty/corrupt project configuration (per AC).
       status_subquery = <<~SQL.squish
         work_packages.status_id NOT IN (
           SELECT status_id
