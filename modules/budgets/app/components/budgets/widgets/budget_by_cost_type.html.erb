@@ -28,14 +28,16 @@ See COPYRIGHT and LICENSE files for more details.
 ++# %>
 
 <%=
-  widget_wrapper do
+  widget_wrapper do |container|
     if has_budgets_data?
-      flex_layout do |flex|
+      body = flex_layout do |flex|
         flex.with_row do
           render(Primer::Beta::Text.new(color: :subtle, font_size: :small)) do
             if project.children.any?
-              t(".count_caption_with_subitems.#{project.workspace_type.presence_in(%w[project program portfolio]) || 'project'}",
-                count: budget_count)
+              t(
+                ".count_caption_with_subitems.#{project.workspace_type.presence_in(%w[project program portfolio]) || 'project'}",
+                count: budget_count
+              )
             else
               t(".count_caption", count: budget_count)
             end
@@ -54,10 +56,13 @@ See COPYRIGHT and LICENSE files for more details.
             }.to_json
           )
         end
-        flex.with_row(mt: 3) do
-          render(Primer::Beta::Link.new(href: projects_budgets_path(project))) { t(".view_details") }
-        end
       end
+
+      container.with_footer do
+        render(Primer::Beta::Link.new(href: projects_budgets_path(project))) { t(".view_details") }
+      end
+
+      body
     elsif has_budgets?
       render(Primer::Beta::Blankslate.new) do |blankslate|
         blankslate.with_visual_icon(icon: :"op-budget")
