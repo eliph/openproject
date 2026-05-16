@@ -1,6 +1,17 @@
 .op-widget-project-favorites
-  &--list
-    list-style: none
+  display: flex
+  flex-direction: column
+  height: 100%
+  min-height: 0
+  overflow: hidden
 
-  &--link
-    padding-left: 0.25rem
+  &--frame
+    display: flex
+    flex-direction: column
+    flex: 1 1 0
+    min-height: 0
+    overflow: auto
+
+  &--empty
+    align-items: center
+    justify-content: center
